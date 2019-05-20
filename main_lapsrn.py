@@ -7,7 +7,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from lapsrn import Net, L1_Charbonnier_loss
-from dataset import DatasetFromHdf5
+from dataset import DatasetFromHdf5, DatasetFromFolder
 import time, math, glob
 import scipy.io as sio
 from eval import PSNR
@@ -47,7 +47,12 @@ def main():
     cudnn.benchmark = True
 
     print("===> Loading datasets")
-    train_set = DatasetFromHdf5("data/lap_pry_x4_small.h5")
+    # train_set = DatasetFromHdf5("data/lap_pry_x4_small.h5")
+    file_path = None
+    file_path['LR'] = 'LR/path'
+    file_path['x2'] = 'x2/path'
+    file_path['x4'] = 'x4/path'
+    train_set = DatasetFromFolder(file_path)
     training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 
     print("===> Building model")
