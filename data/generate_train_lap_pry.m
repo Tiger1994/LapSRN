@@ -1,8 +1,22 @@
 clear;
 close all;
-folder = 'trainingset';
+folder = '/home/tiger/Graduate/datasets/LapSRN/trainingset';
+savepath = '/home/tiger/Graduate/datasets/LapSRN/trainingset_pre';
 
-savepath = 'lapsrn_train.h5';
+%% Generate paths
+LR_path = [savepath, '/LR'];
+x2_path = [savepath, '/x2'];
+x4_path = [savepath, '/x4'];
+
+if(isdir(LR_path) == 0)
+    mkdir(LR_path);
+end
+if(isdir(x2_path) == 0)
+    mkdir(x2_path);
+end
+if(isdir(x4_path) == 0)
+    mkdir(x4_path);
+end
 
 size_label = 128;
 scale = 4;
@@ -11,7 +25,8 @@ size_x2 = size_label/2;
 stride = 64;
 
 %% downsizing
-downsizes = [1,0.7,0.5];
+%downsizes = [1,0.7,0.5];
+downsizes = [1];
 
 data = zeros(size_input, size_input, 1, 1);
 label_x2 = zeros(size_x2, size_x2, 1, 1);
@@ -29,8 +44,12 @@ filepaths = [filepaths; dir(fullfile(folder, '*.png'))];
 length(filepaths)
 
 for i = 1 : length(filepaths)
+    fprintf(num2str(i));
+    fprintf('\n');
     for flip = 1:3
-        for degree = 1:4
+    %for flip = 3:3
+        %for degree = 1:4
+        for degree = 1:1
             for downsize = 1 : length(downsizes)
 
                 image = imread(fullfile(folder,filepaths(i).name));
@@ -56,9 +75,13 @@ for i = 1 : length(filepaths)
                             subim_input = imresize(subim_label, 1/scale, 'bicubic');
 
                             count = count+1;
-                            data(:, :, 1, count) = subim_input;
-                            label_x2(:, :, 1, count) = subim_label_x2;
-                            label_x4(:, :, 1, count) = subim_label;
+                            
+                            lr_name = [LR_path, '/', num2str(count), '.png'];
+                            x2_name = [x2_path, '/', num2str(count), '.png'];
+                            x4_name = [x4_path, '/', num2str(count), '.png'];
+                            imwrite(subim_input, lr_name);
+                            imwrite(subim_label_x2, x2_name);
+                            imwrite(subim_label, x4_name);
                         end
                     end
                 end
@@ -66,26 +89,3 @@ for i = 1 : length(filepaths)
         end
     end
 end
-
-order = randperm(count);
-data = data(:, :, 1, order);
-label_x4 = label_x4(:, :, 1, order);
-label_x2 = label_x2(:, :, 1, order);
-
-%% writing to HDF5
-chunksz = 64;
-created_flag = false;
-totalct = 0;
-
-for batchno = 1:floor(count/chunksz)
-    batchno
-    last_read=(batchno-1)*chunksz;
-    batchdata = data(:, :, 1, last_read+1:last_read+chunksz);
-    batchlabs_x2 = label_x2(:, :, 1, last_read+1:last_read+chunksz);
-    batchlabs = label_x4(:, :, 1, last_read+1:last_read+chunksz);
-    startloc = struct('dat',[1, 1, 1, totalct+1], 'lab_x2', [1, 1, 1, totalct+1], 'lab_x4', [1, 1, 1, totalct+1]);
-    curr_dat_sz = store2hdf5(savepath, batchdata, batchlabs_x2, batchlabs, ~created_flag, startloc, chunksz);
-    created_flag = true;
-    totalct = curr_dat_sz(end);
-end
-h5disp(savepath);

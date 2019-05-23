@@ -10,9 +10,9 @@ from lapsrn import Net, L1_Charbonnier_loss
 from dataset import DatasetFromHdf5, DatasetFromFolder
 import time, math, glob
 import scipy.io as sio
-from eval import PSNR
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 # Training settings
 parser = argparse.ArgumentParser(description="PyTorch LapSRN")
@@ -23,10 +23,23 @@ parser.add_argument("--step", type=int, default=100, help="Sets the learning rat
 parser.add_argument("--cuda", action="store_true", help="Use cuda?")
 parser.add_argument("--resume", default="", type=str, help="Path to checkpoint (default: none)")
 parser.add_argument("--start-epoch", default=1, type=int, help="Manual epoch number (useful on restarts)")
-parser.add_argument("--threads", type=int, default=1, help="Number of threads for data loader to use, Default: 1")
+parser.add_argument("--threads", type=int, default=0, help="Number of threads for data loader to use, Default: 1")
 parser.add_argument("--momentum", default=0.9, type=float, help="Momentum, Default: 0.9")
 parser.add_argument("--weight-decay", "--wd", default=1e-4, type=float, help="weight decay, Default: 1e-4")
 parser.add_argument("--pretrained", default="", type=str, help="path to pretrained model (default: none)")
+
+def PSNR(pred, gt, shave_border=0):
+    height, width = pred.shape[:2]
+    pred = pred[shave_border:height - shave_border, shave_border:width - shave_border]
+    gt = gt[shave_border:height - shave_border, shave_border:width - shave_border]
+    imdff = pred - gt
+    rmse = math.sqrt(np.mean(imdff ** 2))
+    if rmse == 0:
+        return 100
+    return 20 * math.log10(255.0 / rmse)
+
+opt = parser.parse_args()
+cuda = opt.cuda
 
 def main():
 
@@ -48,10 +61,10 @@ def main():
 
     print("===> Loading datasets")
     # train_set = DatasetFromHdf5("data/lap_pry_x4_small.h5")
-    file_path = None
-    file_path['LR'] = 'LR/path'
-    file_path['x2'] = 'x2/path'
-    file_path['x4'] = 'x4/path'
+    file_path = {}
+    file_path['LR'] = '/home/tiger/Graduate/datasets/LapSRN/trainingset_gen/LR_npy'
+    file_path['x2'] = '/home/tiger/Graduate/datasets/LapSRN/trainingset_gen/x2_npy'
+    file_path['x4'] = '/home/tiger/Graduate/datasets/LapSRN/trainingset_gen/x4_npy'
     train_set = DatasetFromFolder(file_path)
     training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 
@@ -94,7 +107,7 @@ def main():
         psnr = train(training_data_loader, optimizer, model, criterion, epoch)
         psnr_list.append(psnr)
 
-    save_checkpoint(model, opt.nEpochs + 1)
+    save_checkpoint(model, opt.nEpochs)
     whole_res = pd.DataFrame(
         data={'psnr': psnr_list},
         index=range(1, opt.nEpochs + 1)
@@ -119,7 +132,16 @@ def train(training_data_loader, optimizer, model, criterion, epoch):
 
     model.train()
 
-    for iteration, batch in enumerate(training_data_loader, 1):
+    avg_psnr_bicubic = 0.0
+    avg_elapsed_time = 0.0
+    avg_psnr_predicted = 0.0
+
+    image_list = glob.glob('/home/tiger/Graduate/datasets/LapSRN/Set5' + "/*.*")
+    train_bar = tqdm(training_data_loader)
+    for iteration, batch in enumerate(train_bar):
+        avg_psnr_bicubic = 0.0
+        avg_elapsed_time = 0.0
+        avg_psnr_predicted = 0.0
 
         input, label_x2, label_x4 = Variable(batch[0]), Variable(batch[1], requires_grad=False), Variable(batch[2], requires_grad=False)
 
@@ -141,12 +163,6 @@ def train(training_data_loader, optimizer, model, criterion, epoch):
         loss_x4.backward()
 
         optimizer.step()
-
-        image_list = glob.glob('Set5' + "/*.*")
-
-        avg_psnr_predicted = 0.0
-        avg_psnr_bicubic = 0.0
-        avg_elapsed_time = 0.0
 
         for image_name in image_list:
             im_gt_y = sio.loadmat(image_name)['im_gt_y']
@@ -181,10 +197,15 @@ def train(training_data_loader, optimizer, model, criterion, epoch):
 
             psnr_predicted = PSNR(im_gt_y, im_h_y, shave_border=4)
             avg_psnr_predicted += psnr_predicted
-        print("PSNR_predicted=", avg_psnr_predicted / len(image_list))
-        if iteration%100 == 0:
-            print("===> Epoch[{}]({}/{}): Loss: {:.10f}".format(epoch, iteration, len(training_data_loader), loss.data[0]))
-        return avg_psnr_predicted
+
+        train_bar.set_description(desc='%d/%d; %.4f' % (iteration,len(training_data_loader), avg_psnr_predicted / len(image_list)))
+        # if iteration%100 == 0:
+        #     print("PSNR_predicted=", avg_psnr_predicted / len(image_list))
+        #     print("===> Epoch[{}]({}/{}): Loss: {:.10f}".format(epoch, iteration, len(training_data_loader), loss.data[0]))
+
+    train_bar.close()
+    return avg_psnr_predicted / len(image_list)
+
 
 def save_checkpoint(model, epoch):
     model_folder = "checkpoint/"

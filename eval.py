@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser(description="PyTorch LapSRN Eval")
 parser.add_argument("--cuda", action="store_true", help="use cuda?")
 parser.add_argument("--model", default="model/model_epoch_100.pth", type=str, help="model path")
-parser.add_argument("--dataset", default="Urban100", type=str, help="dataset name, Default: Set5")
+parser.add_argument("--dataset", default="Set5", type=str, help="dataset name, Default: Set5")
 parser.add_argument("--scale", default=4, type=int, help="scale factor, Default: 4")
 
 def PSNR(pred, gt, shave_border=0):
