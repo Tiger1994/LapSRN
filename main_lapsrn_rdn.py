@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from lapsrn import Net, L1_Charbonnier_loss
+from lapsrn_rdn import Net, L1_Charbonnier_loss
 from dataset import DatasetFromHdf5, DatasetFromFolder
 import time, math, glob
 import scipy.io as sio
@@ -43,6 +43,19 @@ cuda = opt.cuda
 
 best_psnr = 0.
 
+
+class NET_OPT(object):
+    def __init__(self):
+        super(object, self).__init()
+        self.D = None
+        self.C = None
+        self.G = None
+        self.G0 = None
+        self.kernel_size = None
+        self.input_channels = None
+        self.out_channels = None
+
+
 def main():
 
     global opt, model
@@ -71,7 +84,18 @@ def main():
     training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 
     print("===> Building model")
-    model = Net()
+    net_opt = NET_OPT
+    net_opt.D = 2
+    net_opt.C = 5
+    net_opt.G = 32
+    net_opt.G0 = 32
+    net_opt.kernel_size = 3
+    net_opt.input_channels = 1
+    net_opt.out_channels = 32
+
+    model = Net(net_opt)
+    print('# model parameters:', sum(param.numel() for param in model.parameters()))
+
     criterion = L1_Charbonnier_loss()
 
     print("===> Setting GPU")
@@ -98,7 +122,7 @@ def main():
             weights = torch.load(opt.pretrained)
             model.load_state_dict(weights['model'].state_dict())
         else:
-            print("=> no model found at '{}'".format(opt.pretrained)) 
+            print("=> no model found at '{}'".format(opt.pretrained))
 
     print("===> Setting Optimizer")
     optimizer = optim.Adam(model.parameters(), lr=opt.lr)
@@ -106,7 +130,7 @@ def main():
     print("===> Training")
     psnr_list = []
 
-    for epoch in range(opt.start_epoch, opt.nEpochs + 1): 
+    for epoch in range(opt.start_epoch, opt.nEpochs + 1):
         psnr = train(training_data_loader, optimizer, model, criterion, epoch)
         psnr_list.append(psnr)
 
@@ -134,7 +158,6 @@ def train(training_data_loader, optimizer, model, criterion, epoch):
     print("Epoch={}, lr={}, best_psnr={:.2f}".format(epoch, optimizer.param_groups[0]["lr"], best_psnr))
 
     model.train()
-    print('# generator parameters:', sum(param.numel() for param in model.parameters()))
 
     avg_psnr_bicubic = 0.0
     avg_elapsed_time = 0.0
@@ -224,6 +247,7 @@ def save_checkpoint(model, epoch):
     torch.save(state, model_out_path)
 
     # print("Checkpoint saved to {}".format(model_out_path))
+
 
 if __name__ == "__main__":
     main()
