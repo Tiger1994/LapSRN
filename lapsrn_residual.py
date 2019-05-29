@@ -19,18 +19,28 @@ def get_upsample_filter(size):
 class one_conv(nn.Module):
     def __init__(self):
         super(one_conv, self).__init__()
-        self.conv = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
-        self.LRelu = nn.LeakyReLU(0.2, inplace=True)
+        self.conv1 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.LRelu1 = nn.LeakyReLU(0.2, inplace=True)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.LRelu2 = nn.LeakyReLU(0.2, inplace=True)
+        self.conv3 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.LRelu3 = nn.LeakyReLU(0.2, inplace=True)
+        self.conv4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.LRelu4 = nn.LeakyReLU(0.2, inplace=True)
+        self.conv5 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.LRelu5 = nn.LeakyReLU(0.2, inplace=True)
     def forward(self, input):
         output = input
-        output = self.conv(output)
-        output = self.LRelu(output)
-        output = self.conv(output)
-        output = self.LRelu(output)
-        output = self.conv(output)
-        output = self.LRelu(output)
-        output = self.conv(output)
-        output = self.LRelu(output)
+        output = self.conv1(output)
+        output = self.LRelu1(output)
+        output = self.conv2(output)
+        output = self.LRelu2(output)
+        output = self.conv3(output)
+        output = self.LRelu3(output)
+        output = self.conv4(output)
+        output = self.LRelu4(output)
+        output = self.conv5(output)
+        output = self.LRelu5(output)
         return output
 
 

@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from lapsrn_residual import Net, L1_Charbonnier_loss
+from lapsrn_cross_space import Net, L1_Charbonnier_loss
 from dataset import DatasetFromHdf5, DatasetFromFolder
 import time, math, glob
 import scipy.io as sio
