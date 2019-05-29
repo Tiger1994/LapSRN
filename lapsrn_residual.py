@@ -21,8 +21,15 @@ class one_conv(nn.Module):
         super(one_conv, self).__init__()
         self.conv = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
         self.LRelu = nn.LeakyReLU(0.2, inplace=True)
-    def forward(self, *input):
-        output = self.conv(*input)
+    def forward(self, input):
+        output = input
+        output = self.conv(output)
+        output = self.LRelu(output)
+        output = self.conv(output)
+        output = self.LRelu(output)
+        output = self.conv(output)
+        output = self.LRelu(output)
+        output = self.conv(output)
         output = self.LRelu(output)
         return output
 
@@ -30,20 +37,24 @@ class one_conv(nn.Module):
 class _Conv_Block(nn.Module):
     def __init__(self):
         super(_Conv_Block, self).__init__()
-        self.conv_num = 10
+        self.conv_num = 2
         convs = []
         for i in range(self.conv_num):
             convs.append(one_conv())
         self.convs = nn.Sequential(*convs)
         self.upsample = nn.Sequential(
+            nn.Conv2d(in_channels=64*self.conv_num, out_channels=64, kernel_size=1, stride=1, padding=0, bias=False),
             nn.ConvTranspose2d(in_channels=64, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
     def forward(self, x):
         output = x
+        outs = []
         for i in range(self.conv_num):
-            output = self.convs[i](output)+x
+            output = self.convs[i](output)
+            outs.append(output)
+        output = torch.cat(outs, 1)
         output = self.upsample(output)
         return output
 

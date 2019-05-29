@@ -1,7 +1,7 @@
 clear;
 close all;
 folder = '/home/tiger/Graduate/datasets/LapSRN/trainingset';
-savepath = '/home/tiger/Graduate/datasets/LapSRN/trainingset_pre';
+savepath = '/home/tiger/Graduate/datasets/LapSRN/trainingset_big';
 
 %% Generate paths
 LR_path = [savepath, '/LR'];
@@ -25,8 +25,8 @@ size_x2 = size_label/2;
 stride = 64;
 
 %% downsizing
-%downsizes = [1,0.7,0.5];
-downsizes = [1];
+downsizes = [1,0.9,0.8,0.7,0.6,0.5];
+%downsizes = [1];
 
 data = zeros(size_input, size_input, 1, 1);
 label_x2 = zeros(size_x2, size_x2, 1, 1);
@@ -48,8 +48,8 @@ for i = 1 : length(filepaths)
     fprintf('\n');
     for flip = 1:3
     %for flip = 3:3
-        %for degree = 1:4
-        for degree = 1:1
+        for degree = 1:0.2:4
+        %for degree = 1:1
             for downsize = 1 : length(downsizes)
 
                 image = imread(fullfile(folder,filepaths(i).name));
