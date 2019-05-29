@@ -30,11 +30,13 @@ class one_conv(nn.Module):
 class _Conv_Block(nn.Module):
     def __init__(self):
         super(_Conv_Block, self).__init__()
-        self.conv_num = 10
+        self.conv_num = 9
         convs = []
         for i in range(self.conv_num):
             convs.append(one_conv())
         self.convs = nn.Sequential(*convs)
+        self.conv_one = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.LRelu = nn.LeakyReLU(0.2, inplace=True)
         self.upsample = nn.Sequential(
             nn.ConvTranspose2d(in_channels=64, out_channels=64, kernel_size=4, stride=2, padding=1, bias=False),
             nn.LeakyReLU(0.2, inplace=True)
@@ -45,6 +47,8 @@ class _Conv_Block(nn.Module):
         for i in range(self.conv_num):
             output = self.convs[i](output)
         output = output + x
+        output = self.conv_one(output)
+        # output = self.LRelu(output)
         output = self.upsample(output)
         return output
 
