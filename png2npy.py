@@ -5,9 +5,9 @@ import scipy.misc as misc
 import os
 
 if __name__ == "__main__":
-    file_list = ['/home/tiger/Graduate/datasets/LapSRN/trainingset_pre/LR',
-                 '/home/tiger/Graduate/datasets/LapSRN/trainingset_pre/x2',
-                 '/home/tiger/Graduate/datasets/LapSRN/trainingset_pre/x4']
+    file_list = ['/SSD64/LapSRN/trainingset_big/LR',
+                 '/SSD64/LapSRN/trainingset_big/x2',
+                 '/SSD64/LapSRN/trainingset_big/x4']
 
     for file_name in file_list:
         new_file_name = file_name+'_npy'

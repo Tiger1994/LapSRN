@@ -17,7 +17,7 @@ from tqdm import tqdm
 # Training settings
 parser = argparse.ArgumentParser(description="PyTorch LapSRN")
 parser.add_argument("--batchSize", type=int, default=64, help="training batch size")
-parser.add_argument("--nEpochs", type=int, default=200, help="number of epochs to train for")
+parser.add_argument("--nEpochs", type=int, default=150, help="number of epochs to train for")
 parser.add_argument("--lr", type=float, default=1e-4, help="Learning Rate. Default=1e-4")
 parser.add_argument("--step", type=int, default=100, help="Sets the learning rate to the initial LR decayed by momentum every n epochs, Default: n=10")
 parser.add_argument("--cuda", action="store_true", help="Use cuda?")
@@ -27,6 +27,11 @@ parser.add_argument("--threads", type=int, default=0, help="Number of threads fo
 parser.add_argument("--momentum", default=0.5, type=float, help="Momentum, Default: 0.9")
 parser.add_argument("--weight-decay", "--wd", default=1e-4, type=float, help="weight decay, Default: 1e-4")
 parser.add_argument("--pretrained", default="", type=str, help="path to pretrained model (default: none)")
+
+opt = parser.parse_args()
+cuda = opt.cuda
+best_psnr = 0.
+
 
 def PSNR(pred, gt, shave_border=0):
     height, width = pred.shape[:2]
@@ -38,13 +43,8 @@ def PSNR(pred, gt, shave_border=0):
         return 100
     return 20 * math.log10(255.0 / rmse)
 
-opt = parser.parse_args()
-cuda = opt.cuda
-
-best_psnr = 0.
 
 def main():
-
     global opt, model
     opt = parser.parse_args()
     print(opt)
@@ -65,14 +65,15 @@ def main():
     print("===> Loading datasets")
     # train_set = DatasetFromHdf5("data/lap_pry_x4_small.h5")
     file_path = {}
-    file_path['LR'] = '/home/tiger/Graduate/datasets/LapSRN/trainingset_pre/LR_npy'
-    file_path['x2'] = '/home/tiger/Graduate/datasets/LapSRN/trainingset_pre/x2_npy'
-    file_path['x4'] = '/home/tiger/Graduate/datasets/LapSRN/trainingset_pre/x4_npy'
+    file_path['LR'] = '/SSD64/LapSRN/trainingset_big/LR_npy'
+    file_path['x2'] = '/SSD64/LapSRN/trainingset_big/x2_npy'
+    file_path['x4'] = '/SSD64/LapSRN/trainingset_big/x4_npy'
     train_set = DatasetFromFolder(file_path)
     training_data_loader = DataLoader(dataset=train_set, num_workers=opt.threads, batch_size=opt.batchSize, shuffle=True)
 
     print("===> Building model")
     model = Net()
+    print('# generator parameters:', sum(param.numel() for param in model.parameters()))
     criterion = L1_Charbonnier_loss()
 
     print("===> Setting GPU")
@@ -118,37 +119,32 @@ def main():
     whole_res.to_csv('results.csv', index_label='Epoch')
 
 
-def adjust_learning_rate(optimizer, epoch):
+def adjust_learning_rate(epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 10 epochs"""
-    lr = opt.lr * (0.1 ** (epoch // opt.step))
+    lr = opt.lr * (opt.momentum ** (epoch // opt.step))
     return lr
 
 
 def train(training_data_loader, optimizer, model, criterion, epoch):
     global best_psnr
-
-    lr = adjust_learning_rate(optimizer, epoch-1)
+    lr = adjust_learning_rate(epoch-1)
 
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
 
-    print("Epoch={}, lr={}, best_psnr={:.2f}".format(epoch, optimizer.param_groups[0]["lr"], best_psnr))
-
+    print("Epoch={}, lr={}, best_psnr={:.2f}".format(epoch, lr, best_psnr))
     model.train()
-    print('# generator parameters:', sum(param.numel() for param in model.parameters()))
 
-    avg_psnr_bicubic = 0.0
-    avg_elapsed_time = 0.0
     avg_psnr_predicted = 0.0
-
     image_list = glob.glob('/home/tiger/Graduate/datasets/LapSRN/Set5' + "/*.*")
     train_bar = tqdm(training_data_loader)
-    for iteration, batch in enumerate(train_bar):
-        avg_psnr_bicubic = 0.0
-        avg_elapsed_time = 0.0
-        avg_psnr_predicted = 0.0
 
-        input, label_x2, label_x4 = Variable(batch[0]), Variable(batch[1], requires_grad=False), Variable(batch[2], requires_grad=False)
+    for iteration, batch in enumerate(train_bar):
+        #avg_psnr_bicubic = 0.0
+        avg_elapsed_time = 0.0
+
+        input, label_x2, label_x4 = Variable(batch[0], requires_grad=False), Variable(batch[1], requires_grad=False), \
+                                    Variable(batch[2], requires_grad=False)
 
         if opt.cuda:
             input = input.cuda()
@@ -159,7 +155,6 @@ def train(training_data_loader, optimizer, model, criterion, epoch):
 
         loss_x2 = criterion(HR_2x, label_x2)
         loss_x4 = criterion(HR_4x, label_x4)
-        loss = loss_x2 + loss_x4
 
         optimizer.zero_grad()
 
@@ -175,21 +170,21 @@ def train(training_data_loader, optimizer, model, criterion, epoch):
             im_l_y = sio.loadmat(image_name)['im_l_y']
 
             im_gt_y = im_gt_y.astype(float)
-            im_b_y = im_b_y.astype(float)
+            #im_b_y = im_b_y.astype(float)
             im_l_y = im_l_y.astype(float)
 
-            psnr_bicubic = PSNR(im_gt_y, im_b_y, shave_border=4)
-            avg_psnr_bicubic += psnr_bicubic
+            #psnr_bicubic = PSNR(im_gt_y, im_b_y, shave_border=4)
+            #avg_psnr_bicubic += psnr_bicubic
 
             im_input = im_l_y / 255.
 
             im_input = Variable(torch.from_numpy(im_input).float()).view(1, -1, im_input.shape[0], im_input.shape[1])
             if opt.cuda:
                 im_input = im_input.cuda()
-            start_time = time.time()
+            #start_time = time.time()
             HR_2x, HR_4x = model(im_input)
-            elapsed_time = time.time() - start_time
-            avg_elapsed_time += elapsed_time
+            #elapsed_time = time.time() - start_time
+            #avg_elapsed_time += elapsed_time
 
             HR_4x = HR_4x.cpu()
 
@@ -204,27 +199,25 @@ def train(training_data_loader, optimizer, model, criterion, epoch):
             avg_psnr_predicted += psnr_predicted
 
         avg_psnr = round(avg_psnr_predicted / len(image_list), 2)
+        avg_psnr_predicted = 0.0
+
         train_bar.set_description(desc='%.2f' % (avg_psnr))
         if(avg_psnr > best_psnr):
             save_checkpoint(model, epoch-1)
             best_psnr = avg_psnr
-        # if iteration%100 == 0:
-        #     print("PSNR_predicted=", avg_psnr_predicted / len(image_list))
-        #     print("===> Epoch[{}]({}/{}): Loss: {:.10f}".format(epoch, iteration, len(training_data_loader), loss.data[0]))
     train_bar.close()
     return avg_psnr_predicted / len(image_list)
 
 
 def save_checkpoint(model, epoch):
     model_folder = "checkpoint/"
-    model_out_path = model_folder + "lapsrn_model_best_epoch_{}.pth".format(epoch)
+    model_out_path = model_folder + "best.pth".format(epoch)
     state = {"epoch": epoch ,"model": model}
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
 
     torch.save(state, model_out_path)
 
-    # print("Checkpoint saved to {}".format(model_out_path))
 
 if __name__ == "__main__":
     main()
